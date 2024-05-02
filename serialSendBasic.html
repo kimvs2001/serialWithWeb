@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="kr">
+<head>
+    <meta charset="euc-kr">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRC Calculator</title>
+    <script>
+		let port
+		let reader
+		let keepReading = true;
+		let writer;
+        async function test()
+		{
+			if ("serial" in navigator) {
+			// The Web Serial API is supported.
+				console.log("serial is supported")
+			}
+			else{
+				console.log("serial is not supported")
+			}
+			port = await navigator.serial.requestPort();
+			console.log("Port:",port);
+			
+			await port.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity:"none", bufferSize:1024, flowControl:"none"});
+			
+			const bufferSize = 1024; // 1kB
+			let buffer = new ArrayBuffer(bufferSize);
+			while (port.readable && keepReading) {
+				try{
+					const textDecoder = new TextDecoderStream();
+					reader = port.readable.getReader({ mode: "byob" });
+				
+					// Listen to data coming from the serial device.
+					while (true) {
+					  const { value, done } = await reader.read(new Uint8Array(buffer));
+					  if (done) {
+						// Allow the serial port to be closed later.
+						reader.releaseLock();
+						const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+						break;
+					  }
+					  // value is a Uint8Array.
+					  console.log(value);
+					}
+				} 
+				catch (error)
+				{
+					if (error instanceof TypeError) {
+					// BYOB readers are not supported.
+					// Fallback to port.readable.getReader()...
+					}	
+				}
+			}
+		}
+		
+		async function readInto(reader, buffer) 
+		{
+		  let offset = 0;
+		  while (offset < buffer.byteLength) {
+			const { value, done } = await reader.read(
+			  new Uint8Array(buffer, offset)
+			);
+			if (done) {
+			  break;
+			}
+			buffer = value.buffer;
+			offset += value.byteLength;
+		  }
+		  return buffer;
+		}
+		
+		async function writeTest()
+		{
+			keepReading = false;
+			if(keepReading)
+			{
+				reader.cancel();
+			}
+			console.log("Port:",port);
+			
+			const bufferSize = 1024; // 1kB
+			let buffer = new ArrayBuffer(bufferSize);
+
+			writer = port.writable.getWriter();
+			const data = new Uint8Array([104, 101, 108, 108, 111]); // hello
+			await writer.write(data);
+			// Allow the serial port to be closed later.
+			writer.releaseLock();
+			//const textEncoder = new TextEncoderStream();
+			//const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+			//writer = textEncoder.writable.getWriter();
+			//await writer.write("hello");
+
+		}
+    </script>
+</head>
+<body>
+    <div></div>
+	<button onclick="test()">버튼</button>
+	<button onclick="writeTest()">쓰기</button>
+</label>
+
+</body>
+</html>
